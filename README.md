@@ -14,12 +14,14 @@
 
 According to the JDK release process, features in Project Loom will be broken down into several JEPs and made available in different JDK releases.
 
-| Feature                                                     | Target JDK Release | Status    |
-| ----------------------------------------------------------- | ------------------ | --------- |
-| [Virtual Threads](https://openjdk.java.net/jeps/425)        | 19                 | Preview   |
-| [Structured Concurrency](https://openjdk.java.net/jeps/428) | 19                 | Incubator |
+| Feature                                                     | Target JDK Release | Status                                        |
+| ----------------------------------------------------------- | ------------------ | --------------------------------------------- |
+| [Virtual Threads](https://openjdk.java.net/jeps/425)        | 19                 | Preview                                       |
+| [Structured Concurrency](https://openjdk.java.net/jeps/428) | 19                 | [Incubator](https://openjdk.java.net/jeps/11) |
 
 In the meantime, you can download Project Loom early-access builds from [OpenJDK.net](https://jdk.java.net/loom/).
+
+Features in Project Loom are either in preview or incubating status. To enable preview features, the `--enable-preview` option needs to be passed to `javac` or `java` command. For incubating features, the corresponding JDK modules need to be added explicitly. For example, using the option `--add-modules jdk.incubator.concurrent` to enabled the module for structured concurrency.
 
 ## Virtual Thread
 
@@ -27,9 +29,17 @@ In the meantime, you can download Project Loom early-access builds from [OpenJDK
 
 Before Project Loom, there is only one type of threads in Java, which is called *platform thread* in Project Loom. Platform threads are typically mapped 1:1 to kernel threads scheduled by the operating system. In Project Loom, virtual threads are introduced as a new type of threads.
 
-Virtual threads are typically `user-mode threads` scheduled by the Java runtime rather than the operating system.
+Virtual threads are typically *user-mode threads* scheduled by the Java runtime rather than the operating system. Virtual threads are mapped M:N to kernel threads.
 
 Platform and virtual threads are both represented using `java.lang.Thread`.
+
+### Why we need virtual threads?
+
+The main motivation of using virtual threads is to provide a scalable way to implement *thread-per-request* style request handling. When writing server applications, it's natural to dedicate one thread to a request to handle it for its entire duration. This is because requests are independent of each other. This *thread-per-request* style is easy to understand and program, and also very easy to debug and profile.
+
+However, this `thread-per-request` style cannot be simply implemented using platform threads. Platform threads are implemented as wrappers around the operating system threads. OS threads are costly, and the number of available threads is limited. For a server that handles a very large number of requests concurrently, it's not feasible to create a thread for each request.
+
+
 
 ### How to create virtual threads?
 
@@ -79,7 +89,7 @@ Yes. Virtual threads support both thread-local variables (`ThreadLocal`) and inh
 
 Yes. If no thread-local variables are required, the support can be disabled using methods in `Thread.Builder`.
 
-To disable thread-local variables, you can use the `allowSetThreadLocals(boolean allow)` method.
+To disable thread-local variables, we can use the `allowSetThreadLocals(boolean allow)` method.
 
 When thread-local variables are not allowed:
 
@@ -102,7 +112,7 @@ In the code below, the initial value `1` of the thread-local variable is printed
 ThreadLocal<Integer> threadLocal = ThreadLocal.withInitial(() -> 1);
 Thread.ofVirtual()
     .allowSetThreadLocals(false)
-    .start(() -> System.out.println(threadLocal.get()))
+    .start(() -> System.out.println(threadLocal.get())) // The output is "1"
     .join();
 ```
 
@@ -119,7 +129,50 @@ Thread.ofVirtual()
       Thread.ofVirtual()
           .name("child")
           .inheritInheritableThreadLocals(false)
-          .start(() -> System.out.println(inheritableThreadLocal.get()));
+          .start(() -> System.out.println(inheritableThreadLocal.get())); // The output is "null"
     }).join();
 ```
+
+### Should virtual threads be pooled?
+
+No. Virtual threads are light-weight. There is no need to pool them.
+
+Sometimes a thread pool is used to limit concurrent access to a limited resource. For example, if the upstream server can only handle a limit to 10 concurrent requests, a thread pool with maximum 10 threads may be used to enforce the limitation. However, this pattern shouldn't be used for virtual threads. Structs like `Semaphore` should be used to guard access to a limited resource.
+
+### How are virtual threads scheduled?
+
+Virtual threads are scheduled by the JDK. JDK assigns virtual threads to platform threads, then those platform threads are scheduled by the operating system.
+
+The platform thread which a virtual thread is assigned to is called the virtual thread's `carrier`. A virtual thread may be scheduled to multiple carriers during its lifetime.  The identity of the carrier is unavailable to the virtual thread.
+
+### How are virtual threads executed?
+
+### What about the locks held by virtual threads?
+
+
+
+## `ExecutorService`
+
+### Can `ExecutorService` use virtual threads?
+
+An `ExecutorService` can start a virtual thread for each task. This kind of `ExecutorService`s can be created using `Executors.newVirtualThreadPerTaskExecutor()` or `Executors.newThreadPerTaskExecutor(ThreadFactory threadFactory)` methods. The number of virtual threads created by the `Executor` is unbounded.
+
+In the code below, a new `ExecutorService` is created to use virtual threads. 10000 tasks are submitted to this `ExecutorService`. 
+
+```java
+try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+  IntStream.range(0, 10_000).forEach(i -> executor.submit(() -> {
+    Thread.sleep(Duration.ofSeconds(1));
+    return i;
+  }));
+}
+```
+
+
+
+## `Future`
+
+## Structured Concurrency
+
+### What's structured concurrency?
 
