@@ -1,5 +1,7 @@
 # JDK Project Loom FAQ
 
+[中文版](README_zh_CN.md)
+
 ## General
 
 ### What's Project Loom?

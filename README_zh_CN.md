@@ -149,7 +149,11 @@ Thread.ofVirtual()
 
 JDK 的虚拟线程调度是一个以 FIFO 模式工作的 work-stealing `ForkJoinPool`。该 `ForkJoinPool` 的 `parallelism` 决定了调度时可以使用的平台线程的数量。该数量默认等于处理器的数量（通过 `Runtime.availableProcessors()`获取），也可以通过系统属性 `jdk.virtualThreadScheduler.parallelism`来设置。
 
-### How are virtual threads executed?
+### 虚拟线程如何执行代码？
+
+在执行虚拟线程的代码时，JDK 的线程调度器把虚拟线程分配到一个平台线程上执行。这个过程称为把虚拟线程绑定到平台线程。这个平台线程就成为了该虚拟线程的载体。在执行了某些代码之后，该虚拟线程可以从平台线程解除绑定。
+
+当虚拟线程在等待 I/O 或是执行某些阻塞操作时，可以从平台线程上解除绑定。等阻塞操作完成之后，该虚拟线程可以被调度到新的平台线程上继续执行。虚拟线程的绑定和解除绑定操作，对于应用代码来说是透明的。
 
 ### What about the locks held by virtual threads?
 
