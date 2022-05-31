@@ -19,7 +19,7 @@
 | [虚拟线程](https://openjdk.java.net/jeps/425)        | 19                 | 预览                                       |
 | [结构化并发](https://openjdk.java.net/jeps/428) | 19                 | [孵化](https://openjdk.java.net/jeps/11) |
 
-与此同时，你可以从  [OpenJDK.net](https://jdk.java.net/loom/) 上下载 Loom 项目的早期预览版。
+与此同时，你可以从  [Loom项目网站](https://jdk.java.net/loom/) 下载 Loom 项目的早期预览版。
 
 Loom 项目中的功能目前仍然是预览或孵化状态。为了启用预览功能，`javac` 和 `java` 命令需要添加 `--enable-preview`  选项。对于孵化功能，对应的 JDK 模块需要被显式地添加。比如，使用选项 `--add-modules jdk.incubator.concurrent`  可以启用结构化并发模块。
 
@@ -51,7 +51,7 @@ Loom 项目中的功能目前仍然是预览或孵化状态。为了启用预览
 
 ```java
 var thread = Thread.ofVirtual().name("my virtual thread")
-        .start(() -> System.out.println("I'm running"))
+    .start(() -> System.out.println("I'm running"))
 ```
 
 第二种方式是使用 `Thread.startVirtualThread(Runnable task)` 方法。这个方法等同于 `Thread.ofVirtual().start(task)`。
@@ -103,9 +103,9 @@ var thread = factory.newThread(() -> System.out.println("Create in factory"));
 ```java
 ThreadLocal<Integer> threadLocal = new ThreadLocal<>();
 Thread.ofVirtual()
-    .allowSetThreadLocals(false)
-    .start(() -> threadLocal.set(100)) // 抛出 UnsupportedOperationException
-    .join();
+  .allowSetThreadLocals(false)
+  .start(() -> threadLocal.set(100)) // 抛出 UnsupportedOperationException
+  .join();
 ```
 
 在下面的代码中，thread-local 变量的初始值 `1` 会被输出。
@@ -113,9 +113,9 @@ Thread.ofVirtual()
 ```java
 ThreadLocal<Integer> threadLocal = ThreadLocal.withInitial(() -> 1);
 Thread.ofVirtual()
-    .allowSetThreadLocals(false)
-    .start(() -> System.out.println(threadLocal.get())) // 输出是 "1"
-    .join();
+  .allowSetThreadLocals(false)
+  .start(() -> System.out.println(threadLocal.get())) // 输出是 "1"
+  .join();
 ```
 
 如果不希望可继承的 thread-local 变量从父线程继承值，可以使用  `inheritInheritableThreadLocals(boolean inherit)` 方法。
@@ -125,14 +125,14 @@ Thread.ofVirtual()
 ```java
 var inheritableThreadLocal = new InheritableThreadLocal<Integer>();
 Thread.ofVirtual()
-    .name("parent")
-    .start(() -> {
-      inheritableThreadLocal.set(300);
-      Thread.ofVirtual()
-          .name("child")
-          .inheritInheritableThreadLocals(false)
-          .start(() -> System.out.println(inheritableThreadLocal.get())); // 输出是 "null"
-    }).join();
+  .name("parent")
+  .start(() -> {
+     inheritableThreadLocal.set(300);
+     Thread.ofVirtual()
+        .name("child")
+        .inheritInheritableThreadLocals(false)
+        .start(() -> System.out.println(inheritableThreadLocal.get())); // 输出是 "null"
+  }).join();
 ```
 
 ### 虚拟线程是否应该放入线程池中？
@@ -151,7 +151,7 @@ JDK 的虚拟线程调度是一个以 FIFO 模式工作的 work-stealing `ForkJo
 
 ### 虚拟线程如何执行代码？
 
-在执行虚拟线程的代码时，JDK 的线程调度器把虚拟线程分配到一个平台线程上执行。这个过程称为把虚拟线程绑定到平台线程。这个平台线程就成为了该虚拟线程的载体。在执行了某些代码之后，该虚拟线程可以从平台线程解除绑定。
+在执行虚拟线程的代码时，JDK 的线程调度器把虚拟线程分配到一个平台线程上执行。这个过程称为把虚拟线程绑定（mount）到平台线程。这个平台线程就成为了该虚拟线程的载体。在执行了某些代码之后，该虚拟线程可以从平台线程解除绑定（unmount）。
 
 当虚拟线程在等待 I/O 或是执行某些阻塞操作时，可以从平台线程上解除绑定。等阻塞操作完成之后，该虚拟线程可以被调度到新的平台线程上继续执行。虚拟线程的绑定和解除绑定操作，对于应用代码来说是透明的。
 
@@ -161,11 +161,11 @@ JDK 的虚拟线程调度是一个以 FIFO 模式工作的 work-stealing `ForkJo
 
 ## `ExecutorService`
 
-### Can `ExecutorService` use virtual threads?
+### `ExecutorService` 是否可以使用虚拟线程？
 
-An `ExecutorService` can start a virtual thread for each task. This kind of `ExecutorService`s can be created using `Executors.newVirtualThreadPerTaskExecutor()` or `Executors.newThreadPerTaskExecutor(ThreadFactory threadFactory)` methods. The number of virtual threads created by the `Executor` is unbounded.
+`ExecutorService` 可以为每个任务启动一个虚拟线程。这一类的 `ExecutorService` 对象可以使用 `Executors.newVirtualThreadPerTaskExecutor()` 或 `Executors.newThreadPerTaskExecutor(ThreadFactory threadFactory)` 方法来创建。这一类 `Executor` 对象所能创建的线程数量是无限的。
 
-In the code below, a new `ExecutorService` is created to use virtual threads. 10000 tasks are submitted to this `ExecutorService`. 
+在下面的代码中，创建了一个使用虚拟线程的 `ExecutorService` 对象，并向该 `ExecutorService` 提交了10000个任务。每个任务会休眠 1 秒钟。
 
 ```java
 try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
@@ -180,6 +180,6 @@ try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
 
 ## `Future`
 
-## Structured Concurrency
+## 结构化并发
 
-### What's structured concurrency?
+### 什么是结构化并发？

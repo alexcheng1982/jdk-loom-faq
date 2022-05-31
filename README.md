@@ -21,7 +21,7 @@ According to the JDK release process, features in Project Loom will be broken do
 | [Virtual Threads](https://openjdk.java.net/jeps/425)        | 19                 | Preview                                       |
 | [Structured Concurrency](https://openjdk.java.net/jeps/428) | 19                 | [Incubator](https://openjdk.java.net/jeps/11) |
 
-In the meantime, you can download Project Loom early-access builds from [OpenJDK.net](https://jdk.java.net/loom/).
+In the meantime, you can download Project Loom early-access builds from [Loom website](https://jdk.java.net/loom/).
 
 Features in Project Loom are either in preview or incubating status. To enable preview features, the `--enable-preview` option needs to be passed to `javac` or `java` command. For incubating features, the corresponding JDK modules need to be added explicitly. For example, using the option `--add-modules jdk.incubator.concurrent` to enabled the module for structured concurrency.
 
@@ -51,7 +51,7 @@ In the code below, a new virtual thread is created and started. The return value
 
 ```java
 var thread = Thread.ofVirtual().name("my virtual thread")
-        .start(() -> System.out.println("I'm running"))
+    .start(() -> System.out.println("I'm running"))
 ```
 
 The second approach is using `Thread.startVirtualThread(Runnable task)` method. This is the same as calling `Thread.ofVirtual().start(task)`.
@@ -103,9 +103,9 @@ In the code below, calling `threadLocal.set(100)` throws `UnsupportedOperationEx
 ```java
 ThreadLocal<Integer> threadLocal = new ThreadLocal<>();
 Thread.ofVirtual()
-    .allowSetThreadLocals(false)
-    .start(() -> threadLocal.set(100)) // throws UnsupportedOperationException
-    .join();
+  .allowSetThreadLocals(false)
+  .start(() -> threadLocal.set(100)) // throws UnsupportedOperationException
+  .join();
 ```
 
 In the code below, the initial value `1` of the thread-local variable is printed out.
@@ -113,9 +113,9 @@ In the code below, the initial value `1` of the thread-local variable is printed
 ```java
 ThreadLocal<Integer> threadLocal = ThreadLocal.withInitial(() -> 1);
 Thread.ofVirtual()
-    .allowSetThreadLocals(false)
-    .start(() -> System.out.println(threadLocal.get())) // The output is "1"
-    .join();
+  .allowSetThreadLocals(false)
+  .start(() -> System.out.println(threadLocal.get())) // The output is "1"
+  .join();
 ```
 
 To not inherit the values of inheritable thread-local variables, you can use the `inheritInheritableThreadLocals(boolean inherit)` method.
@@ -125,14 +125,14 @@ In the code below, the `InheritableThreadLocal` object has its value set to `300
 ```java
 var inheritableThreadLocal = new InheritableThreadLocal<Integer>();
 Thread.ofVirtual()
-    .name("parent")
-    .start(() -> {
-      inheritableThreadLocal.set(300);
-      Thread.ofVirtual()
-          .name("child")
-          .inheritInheritableThreadLocals(false)
-          .start(() -> System.out.println(inheritableThreadLocal.get())); // The output is "null"
-    }).join();
+  .name("parent")
+  .start(() -> {
+    inheritableThreadLocal.set(300);
+    Thread.ofVirtual()
+      .name("child")
+       .inheritInheritableThreadLocals(false)
+        .start(() -> System.out.println(inheritableThreadLocal.get())); // The output is "null"
+  }).join();
 ```
 
 ### Should virtual threads be pooled?
