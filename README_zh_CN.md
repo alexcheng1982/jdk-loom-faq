@@ -155,7 +155,19 @@ JDK 的虚拟线程调度是一个以 FIFO 模式工作的 work-stealing `ForkJo
 
 当虚拟线程在等待 I/O 或是执行某些阻塞操作时，可以从平台线程上解除绑定。等阻塞操作完成之后，该虚拟线程可以被调度到新的平台线程上继续执行。虚拟线程的绑定和解除绑定操作，对于应用代码来说是透明的。
 
-### What about the locks held by virtual threads?
+有些 JDK 中的阻塞操作并不会解除对平台线程的绑定，因此会阻塞平台线程和底层的 OS 线程。这是由于操作系统或 JDK 自身的限制，比如很多文件操作以及 `Object.wait()` 方法调用。这些阻塞操作的实现会在内部对此进行补偿。具体的做法是临时增加调度器可以使用的线程数量。因此，JDK 调度器的 `ForkJoinPool` 中的线程数量可能会超过 `parallelism` 指定的值。可以使用系统属性 `jdk.virtualThreadScheduler.maxPoolSize` 来指定调度器中线程的最大值。
+
+在两种情况下，虚拟线程在执行阻塞操作时，会被锁定（pin）在载体上而无法解除绑定：
+
+* 在执行 `synchronized` 方法或块时
+* 在执行 `native` 方法或外部方法时
+
+虚拟线程的锁定可能会对应用的可伸缩性产生影响。当锁定发生时，调度器并不会对此进行补偿。为了避免经常出现的较长时间的锁定，考虑把 `synchronized` 方法或块替换成 `java.util.concurrent.locks.ReentrantLock`。
+
+### 如何调试虚拟线程相关的问题？
+
+虚拟线程同样是 `java.lang.Thread` 的实例，因此已有的调试工具仍然可以继续工作。在进行调试时，可以用同样的方式来逐步执行，查看调用栈，以及检查变量的值。
+
 
 
 
@@ -183,3 +195,27 @@ try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
 ## 结构化并发
 
 ### 什么是结构化并发？
+
+## 调试
+
+### 如何查看虚拟线程的 thread dump？
+
+在故障排查中，thread dump 发挥着重要的作用。由于虚拟线程的数量较大，传统的以扁平列表的方式在 thread dump 中显示线程的方式，对于虚拟线程不太适用。Loom 项目增加了一种使用 JSON 格式的 thread dump，可以更好的展示虚拟线程之间的关系，也方便工具进行处理。
+
+首先可以使用 `jps` 命令列出了全部的 JVM 进程 ID，再使用 `jcmd` 命令来生成 thread dump。
+
+```sh
+$ jcmd <pid> Thread.dump_to_file -format=json <file>
+```
+
+### 如何使用 JFR 来查看虚拟线程相关的事件？
+
+JDK Flight Recorder（JFR）增加了与虚拟线程相关的事件。
+
+| 事件                            | 说明             | 是否默认启用 |
+| ------------------------------- | ---------------- | ------------ |
+| `jdk.VirtualThreadStart`        | 虚拟线程启动     | 否           |
+| `jdk.VirtualThreadEnd`          | 虚拟线程结束     | 否           |
+| `jdk.VirtualThreadPinned`       | 虚拟线程被锁定   | 是           |
+| `jdk.VirtualThreadSubmitFailed` | 虚拟线程启动失败 | 是           |
+

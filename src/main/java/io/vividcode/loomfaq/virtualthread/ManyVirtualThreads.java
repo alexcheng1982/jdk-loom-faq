@@ -1,4 +1,4 @@
-package io.vividcode.concurrency.virtualthread;
+package io.vividcode.loomfaq.virtualthread;
 
 import java.time.Duration;
 import java.util.concurrent.Executors;

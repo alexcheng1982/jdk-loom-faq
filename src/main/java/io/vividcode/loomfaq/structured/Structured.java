@@ -1,6 +1,6 @@
-package io.vividcode.concurrency.structured;
+package io.vividcode.loomfaq.structured;
 
-import io.vividcode.concurrency.Helper;
+import io.vividcode.loomfaq.Helper;
 import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
