@@ -12,7 +12,7 @@ import java.util.concurrent.Executors;
 /**
  * A simple HTTP server using virtual threads.
  * <p>
- * Send requests to <code>/time</code> to view current time.
+ * Send requests to {@code /time} to view current time.
  */
 public class SimpleHttpServer {
 

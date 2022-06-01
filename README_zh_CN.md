@@ -219,3 +219,6 @@ JDK Flight Recorder（JFR）增加了与虚拟线程相关的事件。
 | `jdk.VirtualThreadPinned`       | 虚拟线程被锁定   | 是           |
 | `jdk.VirtualThreadSubmitFailed` | 虚拟线程启动失败 | 是           |
 
+下面的图片展示了 JFR 中与虚拟线程相关的事件。值得注意的是，虚拟线程启动和结束的事件需要在收集时显式地启用。
+
+![JFR](assets/JFR_zh_CN.png)
