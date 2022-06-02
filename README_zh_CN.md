@@ -1,4 +1,6 @@
-# JDK Loom 项目 FAQ
+#  JDK Loom 项目 FAQ
+
+JDK Loom 项目的 FAQ 和示例代码
 
 ## 概述
 
@@ -168,9 +170,6 @@ JDK 的虚拟线程调度是一个以 FIFO 模式工作的 work-stealing `ForkJo
 
 虚拟线程同样是 `java.lang.Thread` 的实例，因此已有的调试工具仍然可以继续工作。在进行调试时，可以用同样的方式来逐步执行，查看调用栈，以及检查变量的值。
 
-
-
-
 ## `ExecutorService`
 
 ### `ExecutorService` 是否可以使用虚拟线程？
@@ -191,6 +190,21 @@ try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
 
 
 ## `Future`
+
+### Loom 中对 `Future`有哪些改动？
+
+Loom 中新增了枚举类型 `Future.State` 表示 `Future` 的状态。
+
+| 枚举值 | 说明 |
+| ------ | ---- |
+| `CANCELLED` |   任务已取消   |
+|  `FAILED`      |   任务已失败，可以查看异常   |
+|   `RUNNING`     |  任务正在运行    |
+|   `SUCCESS`     |   任务已经完成，可以查看结果   |
+
+`Future` 中的 `state()` 方法可以获取到 `Future.State` 表示的状态。
+
+`Future` 中同时新增了 `resultNow()` 和 `exceptionNow()` 方法来分别获取到 `Future` 中包含的结果或异常。这两个方法不会等待 `Future` 的完成。
 
 ## 结构化并发
 

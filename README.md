@@ -202,6 +202,21 @@ try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
 
 ## `Future`
 
+### What are changes to `Future` in Loom?
+
+A new enum `Future.State` is added to represent the state of a `Future`.
+
+| Enum value | Description |
+| ------ | ---- |
+| `CANCELLED` |   The task was cancelled.   |
+|  `FAILED`      |   The task completed with an exception.   |
+|   `RUNNING`     |  The task has not completed.    |
+|   `SUCCESS`     |   The task completed with a result.   |
+
+The `state()` method of `Future` can retrieve the state of a `Future`.
+
+The methods `resultNow()` and `exceptionNow()` can get the result or exception of a  `Future` without waiting, respectively.
+
 ## Structured Concurrency
 
 ### What's structured concurrency?
