@@ -80,15 +80,15 @@ var thread = factory.newThread(() -> System.out.println("Create in factory"));
 
 ### How to check if a thread is virtual?
 
-The new `isVirtual` method in `java.lang.Thread` returns `true` is this thread is a virtual thread.
+The new `isVirtual()` method in `java.lang.Thread` returns `true` is this thread is a virtual thread.
 
 ### Does a virtual thread has name?
 
-A virtual thread doesn't have a name by default. The `getName` method returns the empty string if a thread name is not
+A virtual thread doesn't have a name by default. The `getName()` method returns the empty string if a thread name is not
 set.
 
-The thread name can be set using the `setName` method, or using the `name` method of `Thread.Builder` returned
-from `Thread.ofVirtual`.
+The thread name can be set using the `setName()` method, or using the `name` method of `Thread.Builder` returned
+from `Thread.ofVirtual()`.
 
 It's recommended to always set a name for debugging and error diagnosis purpose.
 
@@ -178,7 +178,7 @@ be scheduled to multiple carriers during its lifetime. The identity of the carri
 
 ### How are virtual threads executed?
 
-### What about the locks held by virtual threads?
+
 
 ## `ExecutorService`
 

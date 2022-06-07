@@ -6,10 +6,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import jdk.incubator.concurrent.StructuredTaskScope;
 
-public class Structured {
+public class StructuredCurrency {
 
   public static void main(String[] args) throws Exception {
-    System.out.println(Helper.timed(() -> new Structured().calculate()));
+    System.out.println(Helper.timed(() -> new StructuredCurrency().calculate()));
   }
 
   public int calculate() throws InterruptedException, ExecutionException {

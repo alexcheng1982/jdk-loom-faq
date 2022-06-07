@@ -210,6 +210,50 @@ Loom 中新增了枚举类型 `Future.State` 表示 `Future` 的状态。
 
 ### 什么是结构化并发？
 
+对于结构化并发（Structured Concurrency），并没有一个清晰的解释。结构化并发要解决的问题是，如何让开发人员更加容易编写并发代码，尽可能的对开发人员屏蔽多线程相关的细节。
+
+下面的代码给出了一个简单的示例。方法 `calculatePrice()` 计算一个用户的某个订单的总价。在实际的计算中，首先计算出订单的总价，再获取到用户享有的折扣，最后得到实际的总价。
+
+```java
+public double calculatePrice(Order order, User user) {
+  double basePrice = calculate(order);
+  double discount = getDiscount(user);
+  return basePrice * (1 - discount);
+}
+```
+
+在单线程的情况下，方法 `calculatePrice()` 的实现简单易懂。如果 `calculate()` 和 `getDiscount()` 方法都是异步的，比如，`getDiscount()` 方法需要调用另外一个服务来获取信息，那么即便是 `calculatePrice()` 这样简单的方法，要正确的编写也不是一件容易的事情。这里会有好几个需要考虑的问题：
+
+- 任务的错误处理：如果 `calculate` 或 `getDiscount` 中的任何一个方法失败，整个 `calculatePrice` 方法应该直接失败。如果 `calculate` 方法失败，而 `getDiscount` 方法仍然在执行中，`getDiscount` 方法的任务应该被取消。
+- 中断处理：如果执行 `calculatePrice` 方法的线程被中断，那么 `calculate` 和 `getDiscount` 方法对应的任务都应该被取消。
+- 超时处理：如果 `calculate` 或 `getDiscount` 中的任何一个方法的执行时间过长，应该视为失败。
+
+一种常见的解决办法是使用 `Future`，如下面的代码所示。通过 `Future` 的 `get` 方法来获取值。`Future` 的问题在于，`Future` 并不知道任务之间的相互关系。当 `basePrice.get()` 出错时，`discount` 表示的 `Future` 并不会自动被取消。
+
+```java
+public double calculatePrice(Order order, User user) throws ExecutionException, InterruptedException {
+  Future<Double> basePrice = calculate(order);
+  Future<Double> discount = getDiscount(user);
+  return basePrice.get() * (1 - discount.get());
+}
+```
+
+在结构化并发中，并发任务的生命周期受限于所在的代码块。如果按照结构化并发的原则，`calculatePrice` 方法作为一个代码块，其中的 `calculate` 和 `getDiscount` 方法是属于该代码块的两个子任务。当 `calculatePrice` 方法返回时，这两个子任务都会结束，不管结果是成功还是失败。这就意味着开发人员不用处理任务的失败、取消和超时等情况，完全由底层平台提供支持。
+
+在结构化并发中，每个任务都可以由自己的子任务。在运行时，结构化并发会构建一个任务的树形结构。相邻的兄弟任务会由同一个父任务来管理。这个树形结构与单线程中的方法调用栈是相似的，只不过表示的是并发任务。开发人员可以用单线程的方式来理解并发代码。
+
+使用结构化并发的基础类是 `StructuredTaskScope`。`StructuredTaskScope` 表示的是一个使用结构化并发的作用域。在这个作用域中的任务都遵循结构化并发的原则。
+
+| 方法                                                       | 说明                                     |
+| ---------------------------------------------------------- | ---------------------------------------- |
+| `<U extends T> Future<U> fork(Callable<? extends U> task)` | 启动一个线程来执行任务                   |
+| `StructuredTaskScope<T> join()`                            | 等待所有任务执行完成，或当前作用域被关闭 |
+| `StructuredTaskScope<T> joinUntil(Instant deadline)`       | 与 `join()` 相同，只不过设置了终止时间   |
+| `shutdown()`                                               | 结束任务作用域                           |
+| `close()`                                                  | 关闭任务作用域                           |
+
+
+
 ## 调试
 
 ### 如何查看虚拟线程的 thread dump？
