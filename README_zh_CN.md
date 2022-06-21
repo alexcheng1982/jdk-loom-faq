@@ -244,6 +244,8 @@ public double calculatePrice(Order order, User user) throws ExecutionException, 
 
 使用结构化并发的基础类是 `StructuredTaskScope`。`StructuredTaskScope` 表示的是一个使用结构化并发的作用域。在这个作用域中的任务都遵循结构化并发的原则。
 
+下表列出了 `StructuredTaskScope` 中的方法。
+
 | 方法                                                       | 说明                                     |
 | ---------------------------------------------------------- | ---------------------------------------- |
 | `<U extends T> Future<U> fork(Callable<? extends U> task)` | 启动一个线程来执行任务                   |
@@ -252,7 +254,11 @@ public double calculatePrice(Order order, User user) throws ExecutionException, 
 | `shutdown()`                                               | 结束任务作用域                           |
 | `close()`                                                  | 关闭任务作用域                           |
 
+在实际的开发中，一般使用的是 `StructuredTaskScope` 的两个子类，`ShutdownOnFailure` 和 `ShutdownOnSuccess`。
 
+`ShutdownOnFailure` 适用的是作用域中的所有任务都必须成功的场景。只要有一个任务失败，该作用域的 `shutdown` 方法会被调用，其他未完成的任务线程也会被中断。
+
+ `ShutdownOnSuccess` 适用的是作用域中的任意任务成功即可的场景。只要有一个任务成功，该作用域的 `shutdown` 方法会被调用，其他未完成的任务线程也会被中断。
 
 ## 调试
 
@@ -280,3 +286,48 @@ JDK Flight Recorder（JFR）增加了与虚拟线程相关的事件。
 下面的图片展示了 JFR 中与虚拟线程相关的事件。值得注意的是，虚拟线程启动和结束的事件需要在收集时显式地启用。
 
 ![JFR](assets/JFR_zh_CN.png)
+
+## JDK 内部库
+
+### JDK 内部库对虚拟线程的支持程度如何？
+
+很多 JDK 内部库已经对虚拟线程提供了支持，主要是与 HTTP 和 TCP 相关的库，可以采用 *thread-per-request* 的模式。
+
+下面的代码使用 JDK 自带的 HTTP 服务器功能。服务器使用的是由 `Executors.newVirtualThreadPerTaskExecutor()` 方法创建的使用虚拟线程的 `Executor` 对象。每个请求都会由虚拟线程来处理。
+
+```java
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.concurrent.Executors;
+
+public class SimpleHttpServer {
+
+  public static void main(String[] args) throws IOException {
+    new SimpleHttpServer().start();
+  }
+
+  public void start() throws IOException {
+    var server = HttpServer.create(new InetSocketAddress(8000), 0);
+    server.createContext("/time", new TimeHandler());
+    server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
+    server.start();
+  }
+
+  private static class TimeHandler implements HttpHandler {
+
+    @Override
+    public void handle(HttpExchange exchange) throws IOException {
+      var response = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+      exchange.sendResponseHeaders(200, response.length());
+      try (var out = exchange.getResponseBody()) {
+        out.write(response.getBytes());
+      }
+    }
+  }
+}
+```
