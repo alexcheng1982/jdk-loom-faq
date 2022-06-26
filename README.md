@@ -1,8 +1,6 @@
-# JDK Project Loom FAQ
+# JDK Project Loom FAQ and Example Code
 
 JDK Project Loom FAQ and example code
-
-[中文版](README_zh_CN.md)
 
 ## General
 
@@ -175,6 +173,8 @@ are scheduled by the operating system.
 
 The platform thread which a virtual thread is assigned to is called the virtual thread's `carrier`. A virtual thread may
 be scheduled to multiple carriers during its lifetime. The identity of the carrier is unavailable to the virtual thread.
+
+JDK scheduler for virtual threads is a work-stealing `ForkJoinPool` working in FIFO mode. The number of platform threads used for scheduling is determined by the `parallelism`  of this `ForkJoinPool`. The default thread number is the same as CPU processors, which is retrieved by calling `Runtime.availableProcessors()`.
 
 ### How are virtual threads executed?
 
