@@ -251,6 +251,8 @@ After obtaining the process id, use `jcmd` command to get a thread dump. To visu
 $ jcmd <pid> Thread.dump_to_file -format=json <file>
 ```
 
+See [here](./assets/thread-dump.json) for an example of thread dump JSON file.
+
 ### How to use JFR to view virtual threads events?
 
 JDK Flight Recorder (JRF) adds events related to virtual threads.
