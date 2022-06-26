@@ -15,7 +15,7 @@ JDK Project Loom FAQ and example code
 ### How can I use Project Loom?
 
 According to the JDK release process, features in Project Loom will be broken down into several JEPs and made available
-in different JDK releases.
+in different JDK releases. For JDK 19, the early-access builds can be downloaded from [jdk.java.net](https://jdk.java.net/19/). JDK 19 builds only contain features targeted to JDK 19.
 
 | Feature                                                     | Target JDK Release | Status                                        |
 | ----------------------------------------------------------- | ------------------ | --------------------------------------------- |
@@ -174,10 +174,22 @@ are scheduled by the operating system.
 The platform thread which a virtual thread is assigned to is called the virtual thread's `carrier`. A virtual thread may
 be scheduled to multiple carriers during its lifetime. The identity of the carrier is unavailable to the virtual thread.
 
-JDK scheduler for virtual threads is a work-stealing `ForkJoinPool` working in FIFO mode. The number of platform threads used for scheduling is determined by the `parallelism`  of this `ForkJoinPool`. The default thread number is the same as CPU processors, which is retrieved by calling `Runtime.availableProcessors()`.
+JDK scheduler for virtual threads is a work-stealing `ForkJoinPool` working in FIFO mode. The number of platform threads used for scheduling is determined by the `parallelism`  of this `ForkJoinPool`. The default thread number is the same as CPU processors, which is retrieved by calling `Runtime.availableProcessors()`. The thread number can also be set via system property `jdk.virtualThreadScheduler.parallelism`.
 
 ### How are virtual threads executed?
 
+When executing code in virtual threads, JDK scheduler assigns the virtual thread to a platform thread. This is called mounting a virtual thread on a platform thread. The selected platform thread becomes the carrier of this virtual thread. After executing some code, the virtual thread may unmount from the platform thread.
+
+When the virtual thread is blocking on I/O or other blocking operations, it can be unmounted from the platform thread. When the blocking operation is finished, the virtual thread can be mounted to another platform thread for execution. Mounting and unmounting of virtual threads are transparent to code executed in virtual threads.
+
+Some blocking operations in the JDK do not unmount the virtual thread, and thus block both its carrier and the underlying OS thread. This is because of limitations either at the OS level or at the JDK level. To compensate  for the capture of the OS thread, the parallelism of the scheduler will be temporarily expanded. This means that the number of platform threads in the scheduler's `ForkJoinPool` may temporarily exceed the configured value. The maximum number of platform threads available to the scheduler can be configured with the system property `jdk.virtualThreadScheduler.maxPoolSize`. 
+
+There are two scenarios in which a virtual thread will be pinned to its carrier and cannot be unmounted during blocking operations:
+
+* When it executes code inside a `synchronized` method or block,
+* When it executes a `native` method or a foreign function.
+
+Pinning may hinder an application's scalability. It a virtual thread performs a blocking operation while it's pinned, then  its carrier and the underlying OS thread are blocked for the duration of the operation. The scheduler doesn't compensate for pinning by expanding its parallelism. To avoid frequent and long-lived pinning, `synchronized` blocks or methods that run frequently and guard long I/O operations should be replaced with `java.util.concurrent.locks.ReentrantLock`.
 
 
 ## `ExecutorService`
@@ -216,6 +228,48 @@ A new enum `Future.State` is added to represent the state of a `Future`.
 The `state()` method of `Future` can retrieve the state of a `Future`.
 
 The methods `resultNow()` and `exceptionNow()` can get the result or exception of a  `Future` without waiting, respectively.
+
+## Debugging
+
+### How to debug virtual threads?
+
+Virtual threads are instances of `java.lang.Thread`. Existing tools to debug, profile, and monitor threads can still work with virtual threads. Java debuggers can step through virtual threads, show call stacks, and inspect variables in stack frames.
+
+The screen-shot below shows debugging a virtual thread in IntelliJ IDEA.
+
+![](./assets/debug-virtual-thread.png)
+
+### How to view thread dump of a virtual thread?
+
+The thread dump plays an important role in troubleshooting applications. JDK's traditional thread dump presents a flat list of threads. This is unsuitable for thousands or millions of virtual threads. The traditional thread dump format is extended to include virtual threads. A new kind of thread dump is introduced to present virtual threads.
+
+To get a thread dump, the process id should be obtained first. This can be done using the `jps` command.
+
+After obtaining the process id, use `jcmd` command to get a thread dump. To visualize and analyze a great number of virtual threads, `jcmd` can emit the new thread dump in JSON format.
+
+```sh
+$ jcmd <pid> Thread.dump_to_file -format=json <file>
+```
+
+### How to use JFR to view virtual threads events?
+
+JDK Flight Recorder (JRF) adds events related to virtual threads.
+
+
+| Event                           | Description                                    | Enabled by default |
+| ------------------------------- | ---------------------------------------------- | ------------------ |
+| `jdk.VirtualThreadStart`        | A virtual thread starts.                       | No                 |
+| `jdk.VirtualThreadEnd`          | A virtual thread ends.                         | No                 |
+| `jdk.VirtualThreadPinned`       | A virtual thread was parked while pinning.     | Yes                |
+| `jdk.VirtualThreadSubmitFailed` | Starting or unparking a virtual thread failed. | Yes                |
+
+The screen-shot below shows virtual threads events in JFR.
+
+![JFR events](./assets/jfr-events.png)
+
+Events for virtual threads starting and ending need to be enabled explicitly.
+
+![JFR enable events](./assets/jfr-enable-events.png)
 
 ## Structured Concurrency
 
