@@ -14,19 +14,21 @@ public class Helper {
 
   public static void timed(Runnable runnable) {
     try {
-      timed(() -> {
-        runnable.run();
-        return null;
-      });
+      timed(
+          () -> {
+            runnable.run();
+            return null;
+          });
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
   }
 
   public static void timed(CheckedRunnable runnable) throws Exception {
-    timed(() -> {
-      runnable.run();
-      return null;
-    });
+    timed(
+        () -> {
+          runnable.run();
+          return null;
+        });
   }
 }

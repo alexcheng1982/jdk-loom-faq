@@ -440,15 +440,17 @@ public class InvokeAll {
   }
 
   private Stream<Callable<Integer>> subTasks() {
-    return IntStream.range(0, 10_000).mapToObj(i -> () -> {
-      try {
-        Thread.sleep(
-            Duration.ofSeconds(ThreadLocalRandom.current().nextLong(3)));
-      } catch (InterruptedException e) {
-        // ignore
-      }
-      return i;
-    });
+    return IntStream.range(0, 10_000)
+        .mapToObj(
+            i ->
+                () -> {
+                  try {
+                    Thread.sleep(Duration.ofSeconds(ThreadLocalRandom.current().nextLong(3)));
+                  } catch (InterruptedException e) {
+                    // ignore
+                  }
+                  return i;
+                });
   }
 }
 ```
@@ -470,21 +472,22 @@ public class InvokeAny {
     try (var scope = new StructuredTaskScope.ShutdownOnSuccess<>()) {
       var futures = subTasks().map(scope::fork).toList();
       scope.join();
-      return futures.stream().filter(f -> !f.isCancelled())
-          .count();
+      return futures.stream().filter(f -> !f.isCancelled()).count();
     }
   }
 
   private Stream<Callable<Integer>> subTasks() {
-    return IntStream.range(0, 1000).mapToObj(i -> () -> {
-      try {
-        Thread.sleep(
-            Duration.ofSeconds(1 + ThreadLocalRandom.current().nextLong(5)));
-      } catch (InterruptedException e) {
-        // ignore
-      }
-      return i;
-    });
+    return IntStream.range(0, 1000)
+        .mapToObj(
+            i ->
+                () -> {
+                  try {
+                    Thread.sleep(Duration.ofSeconds(1 + ThreadLocalRandom.current().nextLong(5)));
+                  } catch (InterruptedException e) {
+                    // ignore
+                  }
+                  return i;
+                });
   }
 }
 ```

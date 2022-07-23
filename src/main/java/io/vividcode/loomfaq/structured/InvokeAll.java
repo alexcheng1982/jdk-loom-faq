@@ -26,14 +26,16 @@ public class InvokeAll {
   }
 
   private Stream<Callable<Integer>> subTasks() {
-    return IntStream.range(0, 10_000).mapToObj(i -> () -> {
-      try {
-        Thread.sleep(
-            Duration.ofSeconds(ThreadLocalRandom.current().nextLong(3)));
-      } catch (InterruptedException e) {
-        // ignore
-      }
-      return i;
-    });
+    return IntStream.range(0, 10_000)
+        .mapToObj(
+            i ->
+                () -> {
+                  try {
+                    Thread.sleep(Duration.ofSeconds(ThreadLocalRandom.current().nextLong(3)));
+                  } catch (InterruptedException e) {
+                    // ignore
+                  }
+                  return i;
+                });
   }
 }

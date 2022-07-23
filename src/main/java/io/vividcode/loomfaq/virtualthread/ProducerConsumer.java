@@ -9,9 +9,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-/**
- * A simple example using producer/consumer pattern
- */
+/** A simple example using producer/consumer pattern */
 public class ProducerConsumer {
 
   private final BlockingQueue<Integer> numbers = new ArrayBlockingQueue<>(10);
@@ -35,28 +33,30 @@ public class ProducerConsumer {
 
   void produce(int number) {
     Thread.ofVirtual()
-        .start(() -> {
-          try {
-            Thread.sleep(Duration.ofSeconds(ThreadLocalRandom.current().nextInt(delay)));
-            numbers.put(number);
-          } catch (InterruptedException e) {
-            // ignore
-          }
-        });
+        .start(
+            () -> {
+              try {
+                Thread.sleep(Duration.ofSeconds(ThreadLocalRandom.current().nextInt(delay)));
+                numbers.put(number);
+              } catch (InterruptedException e) {
+                // ignore
+              }
+            });
   }
 
   void consume() {
     Thread.ofVirtual()
-        .start(() -> {
-          try {
-            Integer value = numbers.poll(delay, TimeUnit.SECONDS);
-            if (value != null) {
-              System.out.printf("Consumed %d%n", value);
-              latch.countDown();
-            }
-          } catch (InterruptedException e) {
-            // ignore
-          }
-        });
+        .start(
+            () -> {
+              try {
+                Integer value = numbers.poll(delay, TimeUnit.SECONDS);
+                if (value != null) {
+                  System.out.printf("Consumed %d%n", value);
+                  latch.countDown();
+                }
+              } catch (InterruptedException e) {
+                // ignore
+              }
+            });
   }
 }

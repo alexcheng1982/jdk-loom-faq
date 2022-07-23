@@ -9,8 +9,7 @@ import jdk.incubator.concurrent.StructuredTaskScope;
 public class StructuredCurrencyExample {
 
   public static void main(String[] args) throws Exception {
-    System.out.println(
-        Helper.timed(() -> new StructuredCurrencyExample().calculate()));
+    System.out.println(Helper.timed(() -> new StructuredCurrencyExample().calculate()));
   }
 
   public int calculate() throws InterruptedException, ExecutionException {

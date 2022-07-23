@@ -1,5 +1,6 @@
 package io.vividcode.loomfaq.virtualthread;
 
+/** A simple counter using virtual threads */
 public class Counter {
 
   private int count = 0;
@@ -17,8 +18,7 @@ public class Counter {
     int count = 10_000;
     for (int i = 0; i < count; i++) {
       try {
-        Thread.ofVirtual().start(counter::increase)
-            .join();
+        Thread.ofVirtual().start(counter::increase).join();
       } catch (InterruptedException e) {
         // ignore
       }

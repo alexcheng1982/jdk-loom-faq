@@ -14,8 +14,7 @@ public class CreateVirtualThreadTests {
   @Test
   @DisplayName("Simple virtual thread")
   void createVirtualThread() throws InterruptedException {
-    var thread = Thread.ofVirtual()
-        .start(() -> System.out.println("I'm running"));
+    var thread = Thread.ofVirtual().start(() -> System.out.println("I'm running"));
     thread.join();
     assertEquals("", thread.getName());
     assertTrue(thread.isVirtual());
@@ -33,7 +32,8 @@ public class CreateVirtualThreadTests {
 
     Thread.ofVirtual()
         .allowSetThreadLocals(false)
-        .start(() -> assertThrows(UnsupportedOperationException.class, () -> threadLocal.set(100))).join();
+        .start(() -> assertThrows(UnsupportedOperationException.class, () -> threadLocal.set(100)))
+        .join();
   }
 
   @Test
@@ -42,12 +42,14 @@ public class CreateVirtualThreadTests {
     var threadLocal = new InheritableThreadLocal<Integer>();
     Thread.ofVirtual()
         .name("parent")
-        .start(() -> {
-          threadLocal.set(300);
-          Thread.ofVirtual()
-              .name("child")
-              .inheritInheritableThreadLocals(false)
-              .start(() -> assertNull(threadLocal.get()));
-        }).join();
+        .start(
+            () -> {
+              threadLocal.set(300);
+              Thread.ofVirtual()
+                  .name("child")
+                  .inheritInheritableThreadLocals(false)
+                  .start(() -> assertNull(threadLocal.get()));
+            })
+        .join();
   }
 }
