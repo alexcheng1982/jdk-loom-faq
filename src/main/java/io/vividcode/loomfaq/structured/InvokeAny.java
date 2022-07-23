@@ -3,7 +3,6 @@ package io.vividcode.loomfaq.structured;
 import io.vividcode.loomfaq.Helper;
 import java.time.Duration;
 import java.util.concurrent.Callable;
-import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -20,8 +19,7 @@ public class InvokeAny {
       var futures = subTasks().map(scope::fork).toList();
       scope.join();
       return futures.stream().filter(f -> !f.isCancelled())
-          .map(Future::resultNow)
-          .reduce(0, Integer::sum);
+          .count();
     }
   }
 

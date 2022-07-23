@@ -6,10 +6,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import jdk.incubator.concurrent.StructuredTaskScope;
 
-public class StructuredCurrency {
+public class StructuredCurrencyExample {
 
   public static void main(String[] args) throws Exception {
-    System.out.println(Helper.timed(() -> new StructuredCurrency().calculate()));
+    System.out.println(
+        Helper.timed(() -> new StructuredCurrencyExample().calculate()));
   }
 
   public int calculate() throws InterruptedException, ExecutionException {
@@ -33,32 +34,35 @@ public class StructuredCurrency {
   }
 
   private int op1() {
+    System.out.println("Operation 1 starts");
     try {
       Thread.sleep(Duration.ofSeconds(3));
     } catch (InterruptedException e) {
       // ignored
     }
-    System.out.println("OP 1");
+    System.out.println("Operation 1 finishes");
     return 1;
   }
 
-  private int op22() {
-    try {
-      Thread.sleep(Duration.ofSeconds(2));
-    } catch (InterruptedException e) {
-      // ignored
-    }
-    System.out.println("OP 2.2");
-    return 3;
-  }
-
   private int op21() {
+    System.out.println("Operation 2.1 starts");
     try {
       Thread.sleep(Duration.ofSeconds(4));
     } catch (InterruptedException e) {
       // ignored
     }
-    System.out.println("OP 2.1");
+    System.out.println("Operation 2.1 finishes");
+    return 3;
+  }
+
+  private int op22() {
+    System.out.println("Operation 2.2 starts");
+    try {
+      Thread.sleep(Duration.ofSeconds(2));
+    } catch (InterruptedException e) {
+      // ignored
+    }
+    System.out.println("Operation 2.2 finishes");
     return 3;
   }
 }

@@ -279,3 +279,213 @@ Events for virtual threads starting and ending need to be enabled explicitly.
 
 ### What's structured concurrency?
 
+Structured concurrency is a coined [term](https://250bpm.com/blog:71/). It's described in details in this [post](https://vorpus.org/blog/notes-on-structured-concurrency-or-go-statement-considered-harmful/). The key point of structured concurrency is `structured`. Structured means the structure of concurrent tasks should match the code structure. By leveraging structured concurrency, developers can write concurrent programs just like single-threaded programs. All the heavy-lifting jobs are done by the underlying framework.
+
+Considering that we are creating an API to expose a user's information in an e-commerce application. When using microservice architecture, a user's information may be maintained by different services. We may need to fetch data from multiple sources and assemble them to get the final result.
+
+The code below shows a simple method `getUser()` to load and assemble a user's information. It fetches data from three different sources. We can treat the `getUser()` method as a task, while those three methods `fetchUserBasicInfo`, `fetchFavoriteStores` and `fetchOrders` are subtasks of the main task.
+
+```java
+public UserData getUser(String userId) {
+    UserBasicInfo basicInfo = fetchUserBasicInfo(userId);
+    List<Store> favoriteStores = fetchFavoriteStores(userId);
+    List<Order> orders = fetchOrders(userId);
+    return assemble(basicInfo, favoriteStores, orders);
+}
+```
+
+Apparently, there is a dependency between the main task and subtasks.
+
+* The main task can only complete when all the subtasks complete.
+* If any of the subtask failed, the main task will also fail. All other ongoing subtasks should be cancelled, because there results won't be used.
+
+If all subtasks are executed synchronously in a single thread, then we can easily assume the following:
+
+* If `fetchUserBasicInfo` fails, both `fetchFavoriteStores` and `fetchOrders` won't be executed, `getUser` returns immediately.
+* `getUser` completes after `assemble` completes, `fetchUserBasicInfo`, `fetchFavoriteStores` and `fetchOrders` all completes successfully before that.
+
+These assumptions can be easily derived from the code structure of `getUser` method. Those three methods are contained in the block of `getUser` method, so their life time is confined by the outer method.
+
+If subtasks are executed asynchronously in different threads, then we cannot make the same assumption.
+
+* Even `getUser` returns, all the subtasks may still be running in their own threads.
+* If `fetchUserBasicInfo` fails, other two subtasks may still run to their ends.
+
+It's possible to implement `getUser` correctly with multithreading support in Java, including `Executor`s and thread pools. However, it's not an easy task, even for most-experienced developers. You have to deal with `Executors`, thread pools, thread interruption, timeout, cooperative cancellation,  graceful shutdown. 
+
+With structured concurrency, you can simply treat concurrent subtasks as they are running in a single thread. Those assumptions still hold. This makes concurrent programming much easier.
+
+### How to use structured concurrency?
+
+The main API to use structured concurrency is `jdk.incubator.concurrent.StructuredTaskScope`. A `StructuredTaskScope` object is a scope where subtasks are executed in.  The workflow of using `StructuredTaskScope` is as follows:
+
+1. The main task creates a `StructuredTaskScope` object.
+2. Use the `fork` method to create a new subtask.
+3. Calls the `join` or `joinUntil` method to wait for subtasks to complete or be cancelled.
+4. After joining, handle any errors in the subtasks and process their results.
+5. Close the scope, usually implicitly via `try`-with-resources. 
+6. During the tasks execution, calling the `shutdown` method to request cancellation of all remaining subtasks.
+
+The table below shows methods of `StructuredTaskScope`.
+
+| Method                                                     | Description                                    |
+| ---------------------------------------------------------- | ---------------------------------------- |
+| `<U extends T> Future<U> fork(Callable<? extends U> task)` | Starts a new thread to run the given task.                   |
+| `StructuredTaskScope<T> join()`                            | Wait for all threads to finish or the task scope to shut down.  |
+| `StructuredTaskScope<T> joinUntil(Instant deadline)`       | Wait for all threads to finish or the task scope to shut down, up to the given deadline.    |
+| `shutdown()`                                               | Shut down the task scope without closing it.                            |
+| `close()`                                                  | Closes this task scope.                          |
+
+There are two types of `StructuredTaskScope` subclasses that are commonly used, `StructuredTaskScope.ShutdownOnFailure`  and `StructuredTaskScope.ShutdownOnSuccess`.
+
+`ShutdownOnFailure` captures the exception of the first subtask to complete abnormally. The policy implemented by this class is intended for cases where the results for all subtasks are required ("invoke all"); if any subtask fails then the results of other unfinished subtasks are no longer needed.
+
+`ShutdownOnSuccess` captures the result of the first subtask to complete successfully. The policy implemented by this class is intended for cases where the result of any subtask will do ("invoke any") and where the results of other unfinished subtask are no longer needed.
+
+The following code shows an example of using `StructuredTaskScope.ShutdownOnFailure`. The main task is `calculate` method. It creates a `ShutdownOnFailure` object, then it forks a subtask that calls the `op1` method. The `calculateInner` method creates another `ShutdownOnFailure` object which forks two subtasks to call the `op21` and `op22` methods.  The `join` method waits for the subtasks to complete. The `throwIfFailed` method throws if a task completes abnormally. The `fork` method returns a `Future` object. After `join` method returns, we can be sure that the `Future` object completes, so it's safe to call `resultNow` to get the actual value.
+
+```java
+public class StructuredCurrencyExample {
+
+  public static void main(String[] args) throws Exception {
+    System.out.println(
+        Helper.timed(() -> new StructuredCurrencyExample().calculate()));
+  }
+
+  public int calculate() throws InterruptedException, ExecutionException {
+    try (var scope = new StructuredTaskScope.ShutdownOnFailure()) {
+      Future<Integer> v1 = scope.fork(this::op1);
+      int v2 = calculateInner();
+      scope.join();
+      scope.throwIfFailed();
+      return v1.resultNow() * v2;
+    }
+  }
+
+  private int calculateInner() throws InterruptedException, ExecutionException {
+    try (var scope = new StructuredTaskScope.ShutdownOnFailure()) {
+      Future<Integer> v21 = scope.fork(this::op21);
+      Future<Integer> v22 = scope.fork(this::op22);
+      scope.join();
+      scope.throwIfFailed();
+      return v21.resultNow() + v22.resultNow();
+    }
+  }
+
+  private int op1() {
+    System.out.println("Operation 1 starts");
+    try {
+      Thread.sleep(Duration.ofSeconds(3));
+    } catch (InterruptedException e) {
+      // ignored
+    }
+    System.out.println("Operation 1 finishes");
+    return 1;
+  }
+
+  private int op21() {
+    System.out.println("Operation 2.1 starts");
+    try {
+      Thread.sleep(Duration.ofSeconds(4));
+    } catch (InterruptedException e) {
+      // ignored
+    }
+    System.out.println("Operation 2.1 finishes");
+    return 3;
+  }
+
+  private int op22() {
+    System.out.println("Operation 2.2 starts");
+    try {
+      Thread.sleep(Duration.ofSeconds(2));
+    } catch (InterruptedException e) {
+      // ignored
+    }
+    System.out.println("Operation 2.2 finishes");
+    return 3;
+  }
+}
+```
+
+The code above demonstrates a task tree. The chart below shows the task tree. The parent task supervises subtasks in the children nodes.
+
+```
+       calculate
+     /           \
+    op1      calculateInner
+            /           \
+          op21          op22
+```
+
+### How to perform *invokeAll* actions using structured concurrency?
+
+ `StructuredTaskScope.ShutdownOnFailure` can be used to perform *invokeAll* actions.
+
+The code below shows an example of using `ShutdownOnFailure`. In the `invokeAll` method, `10000` tasks are created to return an integer, then all these integers are summed  up.
+
+```java
+public class InvokeAll {
+
+  public static void main(String[] args) throws Exception {
+    System.out.println(Helper.timed(() -> new InvokeAll().invokeAll()));
+  }
+
+  public long invokeAll() throws InterruptedException, ExecutionException {
+    try (var scope = new StructuredTaskScope.ShutdownOnFailure()) {
+      var futures = subTasks().map(scope::fork).toList();
+      scope.join();
+      scope.throwIfFailed();
+      return futures.stream().map(Future::resultNow).reduce(0, Integer::sum);
+    }
+  }
+
+  private Stream<Callable<Integer>> subTasks() {
+    return IntStream.range(0, 10_000).mapToObj(i -> () -> {
+      try {
+        Thread.sleep(
+            Duration.ofSeconds(ThreadLocalRandom.current().nextLong(3)));
+      } catch (InterruptedException e) {
+        // ignore
+      }
+      return i;
+    });
+  }
+}
+```
+
+### How to perform *invokeAny* actions using structured concurrency?
+
+`StructuredTaskScope.ShutdownOnSuccess` can be used to perform *invokeAny* actions.
+
+The code below shows an example of using `ShutdownOnSuccess`. This example is similar with the *InvokeAll* code. It starts `1000` tasks and returns the number of tasks that actually succeeded. When running the program, we can see that the number of succeeded tasks varies. Usually there will be hundreds of completed tasks. This is because it takes time to cancel tasks.
+
+```java
+public class InvokeAny {
+
+  public static void main(String[] args) throws Exception {
+    System.out.println(Helper.timed(() -> new InvokeAny().invokeAny()));
+  }
+
+  public long invokeAny() throws InterruptedException {
+    try (var scope = new StructuredTaskScope.ShutdownOnSuccess<>()) {
+      var futures = subTasks().map(scope::fork).toList();
+      scope.join();
+      return futures.stream().filter(f -> !f.isCancelled())
+          .count();
+    }
+  }
+
+  private Stream<Callable<Integer>> subTasks() {
+    return IntStream.range(0, 1000).mapToObj(i -> () -> {
+      try {
+        Thread.sleep(
+            Duration.ofSeconds(1 + ThreadLocalRandom.current().nextLong(5)));
+      } catch (InterruptedException e) {
+        // ignore
+      }
+      return i;
+    });
+  }
+}
+```
+
