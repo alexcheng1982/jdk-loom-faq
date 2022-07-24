@@ -1,4 +1,3 @@
-@@ -1,333 +0,0 @@
 #  JDK Loom 项目 FAQ
 
 JDK Loom 项目的 FAQ 和示例代码
