@@ -326,6 +326,8 @@ The main API to use structured concurrency is `jdk.incubator.concurrent.Structur
 5. Close the scope, usually implicitly via `try`-with-resources. 
 6. During the tasks execution, calling the `shutdown` method to request cancellation of all remaining subtasks.
 
+The thread that creates a `StructuredTaskScope` object is the *owner* of the scope.
+
 The table below shows methods of `StructuredTaskScope`.
 
 | Method                                                     | Description                                    |
@@ -488,6 +490,74 @@ public class InvokeAny {
                   }
                   return i;
                 });
+  }
+}
+```
+
+### What's the difference between `shutdown` and `close` of `StructuredTaskScope`?
+
+The `shutdown` method of `StructuredTaskScope` will:
+
+* Prevent new threads from starting.
+* Cancel tasks that have threads waiting on a result so that the waiting threads wakeup.
+* Interrupts all unfinished threads in the scope.
+* Wakes up the owner if it is waiting in `join` or `joinUntil`. If the owner is not waiting then its next call to `join` or `joinUntil` will return immediately.
+
+When `shutdown` completes,  the `Future` objects for all tasks will be done, normally or abnormally.
+
+The `shutdown` method may only be invoked by the task scope owner or threads contained in the task scope.
+
+The `close` method calls the `shutdown` method to shut down the scope first. It then waits for the threads executing any unfinished tasks to finish.  The `close` method is usually called implicitly using `try-with-resources`.
+
+The `close` method may only be invoked by the task scope owner.
+
+## JDK Libraries
+
+### How virtual threads are used in JDK libraries?
+
+JDK libraries have been upgraded to use virtual threads, especially server-side components.
+
+The code below shows a simple HTTP server using `com.sun.net.httpserver.HttpServer`. It uses virtual threads to handle requests. `Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("time-server-", 1).factory())` creates an `Executor` that creates virtual threads for each task.
+
+```java
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.concurrent.Executors;
+
+public class SimpleHttpServer {
+
+  public static void main(String[] args) throws IOException {
+    new SimpleHttpServer().start();
+  }
+
+  public void start() throws IOException {
+    var server = HttpServer.create(new InetSocketAddress(8000), 0);
+    server.createContext("/time", new TimeHandler());
+    server.setExecutor(
+        Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("time-server-", 1).factory()));
+    server.start();
+    System.out.println("Time server started");
+  }
+
+  private static class TimeHandler implements HttpHandler {
+
+    @Override
+    public void handle(HttpExchange exchange) throws IOException {
+      var response =
+          String.format(
+              "%s, reported on %s",
+              LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+              Thread.currentThread().getName());
+      exchange.sendResponseHeaders(200, response.length());
+      try (var out = exchange.getResponseBody()) {
+        out.write(response.getBytes());
+      }
+    }
   }
 }
 ```
