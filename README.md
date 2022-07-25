@@ -281,6 +281,8 @@ Events for virtual threads starting and ending need to be enabled explicitly.
 
 Structured concurrency is a coined [term](https://250bpm.com/blog:71/). It's described in details in this [post](https://vorpus.org/blog/notes-on-structured-concurrency-or-go-statement-considered-harmful/). The key point of structured concurrency is `structured`. Structured means the structure of concurrent tasks should match the code structure. By leveraging structured concurrency, developers can write concurrent programs just like single-threaded programs. All the heavy-lifting jobs are done by the underlying framework.
 
+> [Kotin Coroutines](https://kotlinlang.org/docs/coroutines-overview.html) is a greate example of using [structured concurrency](https://kotlinlang.org/docs/coroutines-basics.html#structured-concurrency). New coroutines can be only launched in a specific `CoroutineScope` which delimits the lifetime of the coroutine. 
+
 Considering that we are creating an API to expose a user's information in an e-commerce application. When using microservice architecture, a user's information may be maintained by different services. We may need to fetch data from multiple sources and assemble them to get the final result.
 
 The code below shows a simple method `getUser()` to load and assemble a user's information. It fetches data from three different sources. We can treat the `getUser()` method as a task, while those three methods `fetchUserBasicInfo`, `fetchFavoriteStores` and `fetchOrders` are subtasks of the main task.
@@ -299,7 +301,7 @@ Apparently, there is a dependency between the main task and subtasks.
 * The main task can only complete when all the subtasks complete.
 * If any of the subtask failed, the main task will also fail. All other ongoing subtasks should be cancelled, because there results won't be used.
 
-If all subtasks are executed synchronously in a single thread, then we can easily assume the following:
+If all subtasks are executed synchronously in a single thread, then we can easily get the following assumptions:
 
 * If `fetchUserBasicInfo` fails, both `fetchFavoriteStores` and `fetchOrders` won't be executed, `getUser` returns immediately.
 * `getUser` completes after `assemble` completes, `fetchUserBasicInfo`, `fetchFavoriteStores` and `fetchOrders` all completes successfully before that.
@@ -313,7 +315,7 @@ If subtasks are executed asynchronously in different threads, then we cannot mak
 
 It's possible to implement `getUser` correctly with multithreading support in Java, including `Executor`s and thread pools. However, it's not an easy task, even for most-experienced developers. You have to deal with `Executors`, thread pools, thread interruption, timeout, cooperative cancellation,  graceful shutdown. 
 
-With structured concurrency, you can simply treat concurrent subtasks as they are running in a single thread. Those assumptions still hold. This makes concurrent programming much easier.
+With structured concurrency, we can simply treat concurrent subtasks as they are running in a single thread. Those assumptions still hold. This makes concurrent programming much easier.
 
 ### How to use structured concurrency?
 
@@ -340,9 +342,9 @@ The table below shows methods of `StructuredTaskScope`.
 
 There are two types of `StructuredTaskScope` subclasses that are commonly used, `StructuredTaskScope.ShutdownOnFailure`  and `StructuredTaskScope.ShutdownOnSuccess`.
 
-`ShutdownOnFailure` captures the exception of the first subtask to complete abnormally. The policy implemented by this class is intended for cases where the results for all subtasks are required ("invoke all"); if any subtask fails then the results of other unfinished subtasks are no longer needed.
+* `ShutdownOnFailure` captures the exception of the first subtask to complete abnormally. The policy implemented by this class is intended for cases where the results for all subtasks are required ("invoke all"); if any subtask fails then the results of other unfinished subtasks are no longer needed.
 
-`ShutdownOnSuccess` captures the result of the first subtask to complete successfully. The policy implemented by this class is intended for cases where the result of any subtask will do ("invoke any") and where the results of other unfinished subtask are no longer needed.
+* `ShutdownOnSuccess` captures the result of the first subtask to complete successfully. The policy implemented by this class is intended for cases where the result of any subtask will do ("invoke any") and where the results of other unfinished subtask are no longer needed.
 
 The following code shows an example of using `StructuredTaskScope.ShutdownOnFailure`. The main task is `calculate` method. It creates a `ShutdownOnFailure` object, then it forks a subtask that calls the `op1` method. The `calculateInner` method creates another `ShutdownOnFailure` object which forks two subtasks to call the `op21` and `op22` methods.  The `join` method waits for the subtasks to complete. The `throwIfFailed` method throws if a task completes abnormally. The `fork` method returns a `Future` object. After `join` method returns, we can be sure that the `Future` object completes, so it's safe to call `resultNow` to get the actual value.
 
