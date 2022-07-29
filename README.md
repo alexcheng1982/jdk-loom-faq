@@ -19,6 +19,8 @@ JDK Project Loom FAQ and example code
 According to the JDK release process, features in Project Loom will be broken down into several JEPs and made available
 in different JDK releases. For JDK 19, the early-access builds can be downloaded from [jdk.java.net](https://jdk.java.net/19/). JDK 19 builds only contain features targeted to JDK 19.
 
+The table below shows a list of targeted features in Project Loom.
+
 | Feature                                                     | Target JDK Release | Status                                        |
 | ----------------------------------------------------------- | ------------------ | --------------------------------------------- |
 | [Virtual Threads](https://openjdk.java.net/jeps/425)        | 19                 | Preview                                       |
@@ -322,11 +324,11 @@ With structured concurrency, we can simply treat concurrent subtasks as they are
 The main API to use structured concurrency is `jdk.incubator.concurrent.StructuredTaskScope`. A `StructuredTaskScope` object is a scope where subtasks are executed in.  The workflow of using `StructuredTaskScope` is as follows:
 
 1. The main task creates a `StructuredTaskScope` object.
-2. Use the `fork` method to create a new subtask.
-3. Calls the `join` or `joinUntil` method to wait for subtasks to complete or be cancelled.
+2. Use the `fork()` method to create a new subtask.
+3. Calls the `join()` or `joinUntil()` method to wait for subtasks to complete or be cancelled.
 4. After joining, handle any errors in the subtasks and process their results.
 5. Close the scope, usually implicitly via `try`-with-resources. 
-6. During the tasks execution, calling the `shutdown` method to request cancellation of all remaining subtasks.
+6. During the tasks execution, calling the `shutdown()` method to request cancellation of all remaining subtasks.
 
 The thread that creates a `StructuredTaskScope` object is the *owner* of the scope.
 
