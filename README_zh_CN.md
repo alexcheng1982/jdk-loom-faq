@@ -6,7 +6,7 @@ JDK Loom 项目的 FAQ 和示例代码
 
 ### 什么是 Loom 项目？
 
-> **Project Loom** is to intended to explore, incubate and deliver Java VM features and APIs built on top of them for the purpose of supporting easy-to-use, high-throughput lightweight concurrency and new programming models on the Java platform. 
+> **Project Loom** is intended to explore, incubate and deliver Java VM features and APIs built on top of them for the purpose of supporting easy-to-use, high-throughput lightweight concurrency and new programming models on the Java platform. 
 >
 > [Project Loom Wiki](https://wiki.openjdk.java.net/display/loom/Main)
 
@@ -31,17 +31,17 @@ Loom 项目中的功能目前仍然是预览或孵化状态。为了启用预览
 
 在 Loom 项目之前，Java 中只有一种类型的线程，在 Loom 项目中称为 *平台线程*。平台线程与内核线程是一一对应的。在 Loom 项目中引入了一种新的线程类型 - 虚拟线程。
 
-虚拟线程是*用户模式线程*，由 Java 运行时进行调动，而不是由操作系统来调度。虚拟线程和内核线程是 M 对 N 的对应关系，也就是说， M 个虚拟线程会被映射到 N 个内核线程上。
+虚拟线程是*用户模式线程*，由 Java 运行时进行调度，而不是由操作系统来调度。虚拟线程和内核线程是 M 对 N 的对应关系，也就是说， M 个虚拟线程会被映射到 N 个内核线程上。
 
 平台线程和虚拟线程都使用 `java.lang.Thread` 来表示。
 
 ### 为什么需要虚拟线程？
 
-使用虚拟线程的重要动机是提供一种可扩展的方式来实现 *thread-per-request* 的并发风格。在编写服务端应用时，最自然的方式是对于每个请求，使用独有的线程来处理该请求，因为请求是相互独立的。这就是 *thread-per-request* 的并发风格。这种方式易于理解和编程实现，也易于调试和性能调优。
+使用虚拟线程的重要动机是提供一种可扩展的方式来实现 *thread-per-request* 的并发风格。在编写服务端应用时，最自然的方式是对于每个请求，使用独占的线程来处理该请求，因为请求是相互独立的。这就是 *thread-per-request* 的并发风格。这种方式易于理解和编程实现，也易于调试和性能调优。
 
-然而，*thread-per-request* 风格并不能简单地使用平台线程来实现。在实现上，平台线程是操作系统上线程的封装。操作系统的线程会占用资源，存在数量上限。对于一个要并行处理海量请求的服务器应用来说，对每个请求都创建一个平台线程是不可能的。
+然而，*thread-per-request* 风格并不能简单地使用平台线程来实现。在实现上，平台线程是操作系统中线程的封装。操作系统的线程会占用资源，存在数量上限。对于一个要并发处理海量请求的服务器端应用来说，对每个请求都创建一个平台线程是不可能的。
 
-对于这个现实的问题，有很多框架提供了解决方案。常用的思路是依赖非阻塞 I/O 和异步编程。当某个请求在等待 I/O 操作时，它会暂时让出线程，并在 I/O 操作完成之后继续。通过这种方式，可以用少量的线程来同时处理大量的请求。这些框架可以提升系统的吞吐量，但是要求开发人员必须熟悉所使用的底层框架，并按照特定的风格来编写代码。
+对于这个现实的问题，很多框架都提供了解决方案。常用的思路是依赖非阻塞 I/O 和异步编程。当某个请求在等待 I/O 操作时，它会暂时让出线程，并在 I/O 操作完成之后继续执行。通过这种方式，可以用少量的线程来同时处理大量的请求。这些框架可以提升系统的吞吐量，但是要求开发人员必须熟悉所使用的底层框架，并按照特定的风格来编写代码。
 
 在使用虚拟线程之后，开发人员可以使用最自然的方式来编写代码，把请求的处理逻辑全部在一个虚拟线程中完成。在完成对请求的处理之后，相应的线程也会被自动销毁。这极大地降低了编写高并发服务端应用的难度。
 
@@ -49,7 +49,7 @@ Loom 项目中的功能目前仍然是预览或孵化状态。为了启用预览
 
 创建虚拟线程的第一种方式是使用 `Thread.ofVirtual` 方法。
 
-在下面的代码中，一个新的虚拟线程被创建并启动。返回值是`java.lang.Thread`的对象实现。
+在下面的代码中，一个新的虚拟线程被创建并启动。返回值是`java.lang.Thread`的对象。
 
 ```java
 var thread = Thread.ofVirtual().name("my virtual thread")
@@ -62,7 +62,7 @@ var thread = Thread.ofVirtual().name("my virtual thread")
 
 ```java
 var factory = Thread.ofVirtual().factory();
-var thread = factory.newThread(() -> System.out.println("Create in factory"));
+var thread = factory.newThread(() -> System.out.println("Created in factory"));
 ```
 
 ### 如何判断一个线程是否是虚拟的？
@@ -153,11 +153,11 @@ JDK 的虚拟线程调度是一个以 FIFO 模式工作的 work-stealing `ForkJo
 
 ### 虚拟线程如何执行代码？
 
-在执行虚拟线程的代码时，JDK 的线程调度器把虚拟线程分配到一个平台线程上执行。这个过程称为把虚拟线程绑定（mount）到平台线程。这个平台线程就成为了该虚拟线程的载体。在执行了某些代码之后，该虚拟线程可以从平台线程解除绑定（unmount）。
+在执行虚拟线程的代码时，JDK 的线程调度器把虚拟线程分配到一个平台线程上执行。这个过程称为把虚拟线程绑定（mount）到平台线程。这个平台线程就成为了该虚拟线程的载体。在执行了某些代码之后，该虚拟线程可以从平台线程上解除绑定（unmount）。
 
 当虚拟线程在等待 I/O 或是执行某些阻塞操作时，可以从平台线程上解除绑定。等阻塞操作完成之后，该虚拟线程可以被调度到新的平台线程上继续执行。虚拟线程的绑定和解除绑定操作，对于应用代码来说是透明的。
 
-有些 JDK 中的阻塞操作并不会解除对平台线程的绑定，因此会阻塞平台线程和底层的 OS 线程。这是由于操作系统或 JDK 自身的限制，比如很多文件操作以及 `Object.wait()` 方法调用。这些阻塞操作的实现会在内部对此进行补偿。具体的做法是临时增加调度器可以使用的线程数量。因此，JDK 调度器的 `ForkJoinPool` 中的线程数量可能会超过 `parallelism` 指定的值。可以使用系统属性 `jdk.virtualThreadScheduler.maxPoolSize` 来指定调度器中线程的最大值。
+有些 JDK 中的阻塞操作并不会解除对平台线程的绑定，因此会阻塞平台线程和底层的 OS 线程。这是由于操作系统或 JDK 自身的限制，比如很多文件操作以及 `Object.wait()` 方法调用。这些阻塞操作的实现会在内部对此进行补偿。具体的做法是临时增加 JDK 的调度器可以使用的线程数量。因此，JDK 调度器的 `ForkJoinPool` 中的线程数量可能会超过 `parallelism` 指定的值。可以使用系统属性 `jdk.virtualThreadScheduler.maxPoolSize` 来指定调度器中线程的最大值。
 
 在两种情况下，虚拟线程在执行阻塞操作时，会被锁定（pin）在载体上而无法解除绑定：
 
@@ -174,9 +174,9 @@ JDK 的虚拟线程调度是一个以 FIFO 模式工作的 work-stealing `ForkJo
 
 ### `ExecutorService` 是否可以使用虚拟线程？
 
-`ExecutorService` 可以为每个任务启动一个虚拟线程。这一类的 `ExecutorService` 对象可以使用 `Executors.newVirtualThreadPerTaskExecutor()` 或 `Executors.newThreadPerTaskExecutor(ThreadFactory threadFactory)` 方法来创建。这一类 `Executor` 对象所能创建的线程数量是无限的。
+`ExecutorService` 可以为每个任务启动一个虚拟线程。这一类的 `ExecutorService` 对象可以使用 `Executors.newVirtualThreadPerTaskExecutor()` 或 `Executors.newThreadPerTaskExecutor(ThreadFactory threadFactory)` 方法来创建。这一类 `Executor` 对象所能创建的线程数量没有上限（受限于内存）。
 
-在下面的代码中，创建了一个使用虚拟线程的 `ExecutorService` 对象，并向该 `ExecutorService` 提交了10000个任务。每个任务会休眠 1 秒钟。
+在下面的代码中，创建了一个使用虚拟线程的 `ExecutorService` 对象，并向该 `ExecutorService` 提交了10000个任务。每个任务会休眠 1 秒钟。运行这段代码可以发现，所需要的执行时间很短，也不需要太多的资源。
 
 ```java
 try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
@@ -210,7 +210,7 @@ Loom 中新增了枚举类型 `Future.State` 表示 `Future` 的状态。
 
 ### 什么是结构化并发？
 
-对于结构化并发（Structured Concurrency），并没有一个清晰的解释。结构化并发要解决的问题是，如何让开发人员更加容易编写并发代码，尽可能的对开发人员屏蔽多线程相关的细节。
+对于结构化并发（Structured Concurrency），并没有一个清晰的解释。结构化并发要解决的问题是，如何让开发人员更加容易地编写并发代码，尽可能的对开发人员屏蔽多线程相关的细节。
 
 下面的代码给出了一个简单的示例。方法 `calculatePrice()` 计算一个用户的某个订单的总价。在实际的计算中，首先计算出订单的总价，再获取到用户享有的折扣，最后得到实际的总价。
 
@@ -240,7 +240,7 @@ public double calculatePrice(Order order, User user) throws ExecutionException, 
 
 在结构化并发中，并发任务的生命周期受限于所在的代码块。如果按照结构化并发的原则，`calculatePrice` 方法作为一个代码块，其中的 `calculate` 和 `getDiscount` 方法是属于该代码块的两个子任务。当 `calculatePrice` 方法返回时，这两个子任务都会结束，不管结果是成功还是失败。这就意味着开发人员不用处理任务的失败、取消和超时等情况，完全由底层平台提供支持。
 
-在结构化并发中，每个任务都可以由自己的子任务。在运行时，结构化并发会构建一个任务的树形结构。相邻的兄弟任务会由同一个父任务来管理。这个树形结构与单线程中的方法调用栈是相似的，只不过表示的是并发任务。开发人员可以用单线程的方式来理解并发代码。
+在结构化并发中，每个任务都可以有自己的子任务。在运行时，结构化并发会构建一个由任务组成的树形结构。相邻的兄弟任务会由同一个父任务来管理。这个树形结构与单线程中的方法调用栈是相似的，只不过表示的是并发任务。开发人员可以用单线程的方式来理解并发代码。
 
 使用结构化并发的基础类是 `StructuredTaskScope`。`StructuredTaskScope` 表示的是一个使用结构化并发的作用域。在这个作用域中的任务都遵循结构化并发的原则。
 
