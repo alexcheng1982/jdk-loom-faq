@@ -12,8 +12,8 @@ import java.util.concurrent.Executors;
 /**
  * A simple HTTP server using virtual threads.
  *
- * <p>Send requests to {@code http://localhost:8000/time} to view current time and virtual thread
- * name that executes the current request
+ * <p>Send requests to {@code http://localhost:8000/time} to view current time
+ * and virtual thread name that executes the current request
  */
 public class SimpleHttpServer {
 
@@ -25,7 +25,8 @@ public class SimpleHttpServer {
     var server = HttpServer.create(new InetSocketAddress(8000), 0);
     server.createContext("/time", new TimeHandler());
     server.setExecutor(
-        Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("time-server-", 1).factory()));
+        Executors.newThreadPerTaskExecutor(
+            Thread.ofVirtual().name("time-server-", 1).factory()));
     server.start();
     System.out.println("Time server started");
   }
