@@ -103,7 +103,7 @@ var thread = factory.newThread(() -> System.out.println("Created in factory"));
 在下面的代码中，调用 `threadLocal.set(100)` 会抛出 `UnsupportedOperationException`。
 
 ```java
-ThreadLocal<Integer> threadLocal = new ThreadLocal<>();
+var threadLocal = new ThreadLocal<>();
 Thread.ofVirtual()
   .allowSetThreadLocals(false)
   .start(() -> threadLocal.set(100)) // 抛出 UnsupportedOperationException
@@ -113,7 +113,7 @@ Thread.ofVirtual()
 在下面的代码中，thread-local 变量的初始值 `1` 会被输出。
 
 ```java
-ThreadLocal<Integer> threadLocal = ThreadLocal.withInitial(() -> 1);
+var threadLocal = ThreadLocal.withInitial(() -> 1);
 Thread.ofVirtual()
   .allowSetThreadLocals(false)
   .start(() -> System.out.println(threadLocal.get())) // 输出是 "1"
